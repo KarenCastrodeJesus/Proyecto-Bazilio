@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Musical</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    textarea { width: 100%; height: 80px; font-size: 1.1rem; padding: .5rem; box-sizing: border-box; }
+    button { font-size: 1rem; padding: .6rem 1.2rem; margin: .5rem .5rem .5rem 0; cursor: pointer; }
+    pre { background: #111; color: rgb(211, 145, 207); padding: 1rem; overflow-x: auto; }
+    iframe { width: 100%; height: 400px; border: 1px solid #bd199a; }
+    #resultado { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Bazilio Musical</h1>
+
+  <label for="notas">Escribe la nota:</label>
+  <textarea id="notas" placeholder="C E G C"></textarea>
+
+  <button id="crear">Crear Archivos</button>
+  <button id="borrar">Borrar</button>
+
+  <pre id="estado"></pre>
+
+  <div id="resultado">
+    <h2>Código Bazilio</h2>
+    <pre id="bzl"></pre>
+
+    <h2>Partitura (PDF)</h2>
+    <iframe id="pdf"></iframe>
+
+    <h2>Audio MP3</h2>
+    <audio id="mp3" controls></audio>
+
+    <h2>Audio WAV</h2>
+    <audio id="wav" controls></audio>
+
+    <h2>Código LilyPond (.ly)</h2>
+    <pre id="ly"></pre>
+
+    <h2>Descargas</h2>
+    <ul id="descargas"></ul>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const archivos = ["bzl", "ly", "midi", "pdf", "mp3", "wav"];
+
+    async function texto(url) {
+      return (await fetch(url + "?t=" + Date.now())).text();
+    }
+
+    $("crear").onclick = async () => {
+      const notas = $("notas").value.trim();
+      if (!notas) { $("estado").textContent = "Escribe al menos una nota."; return; }
+
+      $("estado").textContent = "Generando...";
+      try {
+        const r = await fetch("/generar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notas })
+        });
+        const d = await r.json();
+        $("estado").textContent = (d.ok ? "Listo ✔\n" : "Error ✘\n") + d.log;
+        if (!d.ok) return;
+
+        const t = Date.now();
+        $("bzl").textContent = await texto("programas/hello.bzl");
+        $("ly").textContent = await texto("programas/hello.ly");
+        $("pdf").src = "programas/hello.pdf?t=" + t;
+        $("mp3").src = "programas/hello.mp3?t=" + t;
+        $("wav").src = "programas/hello.wav?t=" + t;
+        $("descargas").innerHTML = archivos
+          .map(e => `<li><a href="programas/hello.${e}" download>hello.${e}</a></li>`)
+          .join("");
+        $("resultado").style.display = "block";
+      } catch (e) {
+        $("estado").textContent = "No se pudo conectar con el servidor";
+      }
+    };
+
+    $("borrar").onclick = () => {
+      $("notas").value = "";
+      $("estado").textContent = "";
+      $("resultado").style.display = "none";
+      $("pdf").removeAttribute("src");
+      $("mp3").removeAttribute("src");
+      $("wav").removeAttribute("src");
+      $("notas").focus();
+    };
+  </script>
+</body>
+</html>
